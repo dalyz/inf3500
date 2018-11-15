@@ -6,115 +6,105 @@ use IEEE.NUMERIC_STD.ALL;
 entity StateMachine is
     Port ( 
     uart : in std_logic;
-    CLK100MHZ, reset : in std_logic;
+    CLK100MHZ, clkDiviseur, reset : in std_logic;
     error : out std_logic;
+    --diviseurReset : out std_logic;
     donnee : out std_logic_vector (7 downto 0)
     );
 end StateMachine;
 
 architecture Behavioral2 of StateMachine is
 
-component diviseur is
- Port (
-    CLK100MHZ, reset : in std_logic;
-   sortieLed : out std_logic
-    );
-end component diviseur;
-
-
-type type_etat is (S0, S1, S2);
-signal state : type_etat := S0;
+type type_etat_machine is (STARTBIT, LECTURE, STOPBIT);
+type type_etat_lecture is (ATTENTE, LECTUREBITS, PARITE);
+signal stateLecture : type_etat_lecture := ATTENTE;
+signal stateMachine : type_etat_machine := STARTBIT;
 signal erreur : std_logic := '0';
-signal signalbaud : std_logic;
+signal modeLecture  : std_logic := '0';
 
-signal diviseurCLK : std_logic;
-signal notReset : std_logic;
 
--- Pour le testBench
-signal donnee : std_logic_vector (7 downto 0) := "00000000";
-signal donneeCompteur : integer := 0;
+signal donnee_signal : std_logic_vector (8 downto 0) := "000000000";
+
 
 begin
-
---UUT : diviseur
-UUT : entity work.diviseur(Behavioral)
-Port map(
-CLK100MHZ => diviseurCLK,
-reset => notReset,
-sortieLed => signalbaud
-);
-
-process(diviseurCLK, reset, uart, signalbaud) is
---variable donnee : std_logic_vector (7 downto 0) := "00000000";
---variable donneeCompteur : integer := 0;
-variable donneeAdd : integer := 0;
+process(CLK100MHZ, reset) is
 begin
-    if (rising_edge(diviseurCLK)) then
-        if(reset = '1') then
-            state <= S0;
-            erreur <= '0';
-            error <= erreur;
-        else
-            case state is
+    if(reset = '1') then
+        stateMachine <= STARTBIT;
+        erreur <= '0';
+        error <= erreur;
+    elsif (rising_edge(CLK100MHZ)) then
+        case stateMachine is
             -- State 0 : on attend le startbit qui est 0
             -- sert à synchroniser le recepteur uart
-            when S0 =>
+        when STARTBIT =>
                 if(uart = '0') then
-                    state <= S1;
+                    stateMachine <= LECTURE;
                 else 
-                    state <= S0;
+                    stateMachine <= STARTBIT;
                 end if;
                 
-            -- State 1 : on va lire les prochains 8 bits à vitesse 57 600 bits/seconde 
-            -- On vérifie la parité et on envoie erreur si besoin
-            when S1 =>
-            while (donneeCompteur < 8) loop
-                if (signalbaud = '1') then
-                    donnee(7) <= donnee(6);
-                    donnee(6) <= donnee(5);
-                    donnee(5) <= donnee(4);
-                    donnee(4) <= donnee(3);
-                    donnee(3) <= donnee(2);
-                    donnee(2) <= donnee(1);
-                    donnee(1) <= donnee(0);
-                    donnee(0) <= uart;
-                end if;   
-                donneeCompteur <= donneeCompteur + 1;    
-             end loop;
-            donneeCompteur <= 0;
-            for k in 0 to 7 loop
-                if (donnee(k) = '1') then
-                    donneeAdd := donneeAdd + 1;
-                end if;
-            end loop;
-            donneeAdd := donneeAdd mod 2;
-            
-            
-            if(donneeAdd = 0) then
-                erreur <= '1';
-                error <= erreur;
-                state <= S2;
+            -- State 1 : on va activer l'autre process et attendre que celui-ci finisse avant de continuer
+        when LECTURE =>
+            modeLecture <= '1';
+            if (modeLecture = '1') then
+                stateMachine <= LECTURE;
             else
-                erreur<='0';
-                error <= erreur;
-                state <= S2;
-                donneeAdd := 0;
+                stateMachine <= STOPBIT;
             end if;
-            
+        
             -- State 2 : On attend le stopbit
-            when S2 =>
+        when STOPBIT =>
                 if(uart = '1') then
-                    state <= S0;
+                    stateMachine <= STARTBIT;
                 else
-                    state <= S2;
+                    stateMachine <= STOPBIT;
                 end if;
                 
             -- Pour les autres états qui existe pas
             when OTHERS => 
-                state <= S0;
+                stateMachine <= STARTBIT;
             end case;
         end if;
-    end if;
 end process;
 
+process(clkDiviseur)
+variable compteur : integer := 0;
+variable bitLus : integer := 0 ;
+begin
+case stateLecture is 
+when ATTENTE =>
+    if (modeLecture = '0') then
+        stateLecture <= ATTENTE;
+    else 
+        stateLecture <= LECTUREBITS;
+    end if;
+    
+when LECTUREBITS =>
+    if (rising_edge(clkDiviseur)) then
+        if (uart = '1') then
+            compteur := compteur + 1;
+        end if;
+        donnee_signal <= uart & donnee_signal(7 downto 1);
+        bitLus := bitLus + 1;
+        if ( bitLus < 9) then
+            stateLecture <= LECTUREBITS;
+        elsif (bitLus = 9) then
+            stateLecture <= PARITE;
+        end if;
+    end if; 
+       
+when PARITE =>
+    if ( compteur mod 2 = 1) then
+        erreur <= '0';
+        modeLecture <= '0';
+    elsif (compteur mod 2 = 0) then
+        erreur <= '1';
+        modeLecture <= '0';
+    end if;
+    stateLecture <= ATTENTE;
+end case;
+end process;
+error <= erreur;
+donnee <= donnee_signal (9 downto 1);
 end Behavioral2;
