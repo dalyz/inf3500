@@ -35,24 +35,28 @@ Port(
 end component StateMachine;
 
 --signal resetDiviseur : std_logic;
-signal diviseurCLK : std_logic;
+--signal diviseurCLK : std_logic;
 signal donnee_recu : std_logic_vector (7 downto 0);
+signal diviseurCLK1 : std_logic;
+signal diviseurCLK2 : std_logic;
 
 begin
+
+diviseurCLK2 <= diviseurCLK1; 
 
 UUT1 : diviseur
 generic map( w => 868 )
 Port map (
     CLK100MHZ => CLK,
     reset => reset_top,
-    sortieLed => diviseurCLK
+    sortieLed => diviseurCLK1
     );
 
 UUT2 : StateMachine
 Port map ( 
     uart => uart_in,
     CLK100MHZ => CLK,
-    clkDiviseur => diviseurCLK,
+    clkDiviseur => diviseurCLK2,
     reset => reset_top,
     error => erreur_top,
     --diviseurReset => resetDiviseur,

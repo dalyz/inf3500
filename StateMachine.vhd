@@ -21,7 +21,7 @@ signal stateLecture : type_etat_lecture := ATTENTE;
 signal stateMachine : type_etat_machine := STARTBIT;
 signal erreur : std_logic := '0';
 signal modeLecture  : std_logic := '0';
-
+signal modeActif : std_logic := '1';
 
 signal donnee_signal : std_logic_vector (8 downto 0) := "000000000";
 
@@ -30,6 +30,8 @@ begin
 process(CLK100MHZ, reset) is
 begin
     if(reset = '1') then
+        modeLecture <= '0';
+        modeActif <= '1';
         stateMachine <= STARTBIT;
         erreur <= '0';
         error <= erreur;
@@ -47,9 +49,10 @@ begin
             -- State 1 : on va activer l'autre process et attendre que celui-ci finisse avant de continuer
         when LECTURE =>
             modeLecture <= '1';
-            if (modeLecture = '1') then
+            modeActif <= '0';
+            if (modeActif = '0') then
                 stateMachine <= LECTURE;
-            else
+            elsif (modeLecture <= '0') then
                 stateMachine <= STOPBIT;
             end if;
         
@@ -68,10 +71,15 @@ begin
         end if;
 end process;
 
-process(clkDiviseur)
+process(clkDiviseur, reset)    
 variable compteur : integer := 0;
 variable bitLus : integer := 0 ;
 begin
+if (reset = '1') then
+    stateLecture <= ATTENTE;
+    compteur := 0;
+    modeLecture <= '0';
+else
 case stateLecture is 
 when ATTENTE =>
     if (modeLecture = '0') then
@@ -96,14 +104,20 @@ when LECTUREBITS =>
        
 when PARITE =>
     if ( compteur mod 2 = 1) then
+        compteur := 0;
         erreur <= '0';
         modeLecture <= '0';
     elsif (compteur mod 2 = 0) then
+        compteur := 0;
         erreur <= '1';
         modeLecture <= '0';
     end if;
     stateLecture <= ATTENTE;
+    
+when others =>
+    stateLecture <= ATTENTE;
 end case;
+end if;
 end process;
 error <= erreur;
 donnee <= donnee_signal (8 downto 1);

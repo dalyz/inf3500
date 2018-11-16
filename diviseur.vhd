@@ -7,7 +7,7 @@ entity diviseur is
     -- Pour avoir un clock avec rising_edge à chaque seconde : k = 50000000
     -- cela vient de : 100MHz / (demi-periode)^(-1) ici on voulait une periode de 1 s.
     -- Maintenant on veut lire 57 600 fois plus vite donc : 50000000/57600 
-    w : integer := 2
+    w : integer := 868
     );
     Port (
  
