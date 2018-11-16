@@ -15,7 +15,7 @@ end StateMachine;
 
 architecture Behavioral2 of StateMachine is
 
-type type_etat_machine is (STARTBIT, LECTURE, STOPBIT);
+type type_etat_machine is (STARTBIT, LECTUREA, LECTURE, STOPBIT);
 type type_etat_lecture is (ATTENTE, LECTUREBITS, PARITE);
 signal stateLecture : type_etat_lecture := ATTENTE;
 signal stateMachine : type_etat_machine := STARTBIT;
@@ -41,18 +41,28 @@ begin
             -- sert à synchroniser le recepteur uart
         when STARTBIT =>
                 if(uart = '0') then
-                    stateMachine <= LECTURE;
+                    --modeActif <= '0';
+                    --modeLecture <= '1';
+                    stateMachine <= LECTUREA;
                 else 
                     stateMachine <= STARTBIT;
                 end if;
                 
+                
+                
+                
+        when LECTUREA =>
+            stateMachine <= LECTURE;    
+            
+            
+            
+               
             -- State 1 : on va activer l'autre process et attendre que celui-ci finisse avant de continuer
         when LECTURE =>
-            modeLecture <= '1';
-            modeActif <= '0';
-            if (modeActif = '0') then
+            
+            if (stateLecture = LECTUREBITS) then
                 stateMachine <= LECTURE;
-            elsif (modeLecture <= '0') then
+            elsif (stateLecture = ATTENTE) then
                 stateMachine <= STOPBIT;
             end if;
         
@@ -82,10 +92,10 @@ if (reset = '1') then
 else
 case stateLecture is 
 when ATTENTE =>
-    if (modeLecture = '0') then
-        stateLecture <= ATTENTE;
-    else 
+    if (stateMachine = LECTUREA) then
         stateLecture <= LECTUREBITS;
+    else 
+        stateLecture <= ATTENTE;
     end if;
     
 when LECTUREBITS =>
@@ -104,14 +114,13 @@ when LECTUREBITS =>
        
 when PARITE =>
     if ( compteur mod 2 = 1) then
-        compteur := 0;
         erreur <= '0';
-        modeLecture <= '0';
     elsif (compteur mod 2 = 0) then
-        compteur := 0;
         erreur <= '1';
-        modeLecture <= '0';
     end if;
+    compteur := 0;
+    --modeLecture <= '0';
+    --modeActif <= '1';
     stateLecture <= ATTENTE;
     
 when others =>
