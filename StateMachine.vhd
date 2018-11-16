@@ -85,7 +85,7 @@ when LECTUREBITS =>
         if (uart = '1') then
             compteur := compteur + 1;
         end if;
-        donnee_signal <= uart & donnee_signal(7 downto 1);
+        donnee_signal <= uart & donnee_signal(8 downto 1);
         bitLus := bitLus + 1;
         if ( bitLus < 9) then
             stateLecture <= LECTUREBITS;
@@ -106,5 +106,5 @@ when PARITE =>
 end case;
 end process;
 error <= erreur;
-donnee <= donnee_signal (9 downto 1);
+donnee <= donnee_signal (8 downto 1);
 end Behavioral2;
